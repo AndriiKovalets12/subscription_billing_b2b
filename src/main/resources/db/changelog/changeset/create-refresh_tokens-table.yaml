@@ -1,0 +1,34 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1791311278545-1
+      author: admin
+      changes:
+        - createSequence:
+            sequenceName: refresh-tokens_seq
+            incrementBy: 50
+        - createTable:
+            tableName: refresh_tokens
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: token
+                  type: VARCHAR(75)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_refresh-tokens_users
+                    references: users(id)
+              - column:
+                  name: expiring_time
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
