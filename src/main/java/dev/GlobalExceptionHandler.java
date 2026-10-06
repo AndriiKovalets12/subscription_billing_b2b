@@ -8,8 +8,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.nio.file.AccessDeniedException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -53,6 +56,20 @@ public class GlobalExceptionHandler {
 
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
                 "The record was modified by another user. Please refresh and try again.");
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ProblemDetail handleProblemArgumentNotValidException(MethodArgumentNotValidException ex){
+        log.warn("Not valid argument exception: {}", ex.getMessage(), ex);
+
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail handleAccessDeniedException(AccessDeniedException ex){
+        log.warn("Access denied exception: {}", ex.getMessage(), ex);
+
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
 }
