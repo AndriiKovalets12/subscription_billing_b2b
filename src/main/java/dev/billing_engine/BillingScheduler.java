@@ -3,8 +3,8 @@ package dev.billing_engine;
 import dev.billing_engine.dto.BillingReportDto;
 import dev.billing_engine.dto.BillingResult;
 import dev.invoices.InvoiceStatus;
-import dev.subscriptions.SubscriptionEntity;
-import dev.subscriptions.SubscriptionRepository;
+import dev.subscriptions.data.SubscriptionEntity;
+import dev.subscriptions.data.SubscriptionRepository;
 import dev.subscriptions.SubscriptionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -45,6 +45,7 @@ public class BillingScheduler {
             );
 
             addToAllResults(page, allResults);
+            pageNumber++;
 
         } while (!page.isEmpty());
 
@@ -56,10 +57,9 @@ public class BillingScheduler {
             );
 
             addToAllResults(page, allResults);
+            pageNumber++;
 
         } while (!page.isEmpty());
-
-
 
         return generateReport(allResults);
     }

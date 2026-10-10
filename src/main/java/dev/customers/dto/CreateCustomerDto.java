@@ -16,11 +16,7 @@ public record CreateCustomerDto(
         String email,
 
         @NotBlank(message = "External id of customer cannot be empty.")
-        String customerExternalId,
-
-        @NotNull(message = "Tenant's id cannot be empty or null.")
-        @Positive(message = "Tenant's id must be greater than zero.")
-        Long tenantId
+        String customerExternalId
 ) {
     @Override
     public String toString() {
@@ -29,7 +25,6 @@ public record CreateCustomerDto(
                 ", lastName='" + lastName + '\'' +
                 ", email='" + email + '\'' +
                 ", customerExternalId='" + customerExternalId + '\'' +
-                ", tenantId=" + tenantId +
                 '}';
     }
 }

@@ -1,0 +1,80 @@
+package dev.invoices.data;
+
+import dev.invoices.InvoiceStatus;
+import dev.subscriptions.data.SubscriptionEntity;
+import dev.tenants.data.TenantEntity;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.CurrentTimestamp;
+import org.hibernate.generator.EventType;
+
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+
+@Getter
+@Entity
+@Table(name = "invoices")
+public class InvoiceEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "invoices_seq_gen")
+    @SequenceGenerator(name = "invoices_seq_gen", sequenceName = "invoices_seq")
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subscription_id", nullable = false, updatable = false)
+    private SubscriptionEntity subscription;
+
+    @Column(name = "amount", nullable = false, updatable = false, precision = 19, scale = 4)
+    private BigDecimal amount;
+
+    @Setter
+    @Column(name = "status", nullable = false, length = 7)
+    @Enumerated(EnumType.STRING)
+    private InvoiceStatus status;
+
+    @CurrentTimestamp(event = EventType.INSERT)
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private OffsetDateTime createdAt;
+
+    @Column(name = "billing_period_start", nullable = false)
+    private OffsetDateTime billingPeriodStart;
+
+    @Column(name = "billing_period_end", nullable = false)
+    private OffsetDateTime billingPeriodEnd;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
+    @Column(name = "idempotency_key", nullable = false, unique = true)
+    private String idempotencyKey;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tenant_id", nullable = false)
+    private TenantEntity tenant;
+
+    protected InvoiceEntity() {
+    }
+
+    public InvoiceEntity(SubscriptionEntity subscription,
+                         BigDecimal amount,
+                         InvoiceStatus status,
+                         OffsetDateTime billingPeriodStart,
+                         OffsetDateTime billingPeriodEnd,
+                         Long version,
+                         String idempotencyKey,
+                         TenantEntity tenant) {
+        this.subscription = subscription;
+        this.amount = amount;
+        this.status = status;
+        this.createdAt = OffsetDateTime.now();
+        this.billingPeriodStart = billingPeriodStart;
+        this.billingPeriodEnd = billingPeriodEnd;
+        this.version = version;
+        this.idempotencyKey = idempotencyKey;
+        this.tenant = tenant;
+    }
+
+}

@@ -1,7 +1,7 @@
 package dev.security.refresh_tokens;
 
-import dev.users.UserEntity;
-import dev.users.UserRepository;
+import dev.users.data.UserEntity;
+import dev.users.data.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,15 +1,24 @@
 package dev.subscription_plans;
 
+import dev.security.SecurityUtils;
+import dev.subscription_plans.data.SubscriptionPlanEntity;
+import dev.subscription_plans.data.SubscriptionPlanRepository;
+import dev.subscription_plans.data.SubscriptionPlanSpecification;
 import dev.subscription_plans.dto.CreateSubscriptionPlanDto;
 import dev.subscription_plans.dto.SubscriptionPlanDto;
-import dev.subscription_plans.dto.UpdateSubscriptionPlanDto;
-import dev.tenants.TenantEntity;
-import dev.tenants.TenantRepository;
+import dev.subscription_plans.dto.FiltersSubscriptionPlanDto;
+import dev.subscription_plans.dto.UpdateSubscriptionPlanNameDto;
+import dev.tenants.data.TenantEntity;
+import dev.tenants.data.TenantRepository;
+import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.Transactional;
+import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 
 @Service
 public class SubscriptionPlanService {
@@ -21,22 +30,32 @@ public class SubscriptionPlanService {
         this.subscriptionPlanRepository = subscriptionPlanRepository;
     }
 
-    public List<SubscriptionPlanDto> getAll(){
-        return mapperToDto(subscriptionPlanRepository.findAllByIsActiveTrue());
+    @Transactional(readOnly = true)
+    public Page<SubscriptionPlanDto> getAll(FiltersSubscriptionPlanDto filters, Pageable pageable){
+        Long currentTenantId = SecurityUtils.getCurrentTenantId();
+
+        Specification<SubscriptionPlanEntity> spec = SubscriptionPlanSpecification.withFilters(currentTenantId, filters);
+
+        return subscriptionPlanRepository.findAll(spec, pageable).map(this::mapperToDto);
     }
 
+    @Transactional(readOnly = true)
     public SubscriptionPlanDto getById(Long id){
+        Long currentTenantId = SecurityUtils.getCurrentTenantId();
+
         SubscriptionPlanEntity entity = subscriptionPlanRepository
-                .findByIdAndIsActiveTrue(id)
+                .findByIdAndTenantId(id, currentTenantId)
                 .orElseThrow(EntityNotFoundException::new);
 
         return mapperToDto(entity);
     }
 
     @Transactional
-    public SubscriptionPlanDto create(CreateSubscriptionPlanDto subPlanToCreate){
+    public SubscriptionPlanDto create(@Valid CreateSubscriptionPlanDto subPlanToCreate){
+        Long currentTenantId = SecurityUtils.getCurrentTenantId();
+
         TenantEntity tenant = tenantRepository
-                .findById(subPlanToCreate.tenant_id())
+                .findById(currentTenantId)
                 .orElseThrow(EntityNotFoundException::new);
 
         SubscriptionPlanEntity createdSubPlan =
@@ -48,15 +67,20 @@ public class SubscriptionPlanService {
                         true
                 );
 
+        if (subscriptionPlanRepository.existsByNameAndIdAndTenantId(createdSubPlan.getName(), createdSubPlan.getId(), currentTenantId)){
+            throw new EntityExistsException("Subscription plan with name:" + createdSubPlan.getName() + " already exists.");
+        }
+
         subscriptionPlanRepository.save(createdSubPlan);
         return mapperToDto(createdSubPlan);
     }
 
     @Transactional
-    public SubscriptionPlanDto updateName(Long id, UpdateSubscriptionPlanDto subPlanToUpdate){
+    public SubscriptionPlanDto updateName(Long id, @Valid UpdateSubscriptionPlanNameDto subPlanToUpdate){
+        Long currentTenantId = SecurityUtils.getCurrentTenantId();
 
         SubscriptionPlanEntity entity = subscriptionPlanRepository
-                .findByIdAndIsActiveTrue(id)
+                .findByIdAndTenantIdAndIsActiveTrue(id, currentTenantId)
                 .orElseThrow(EntityNotFoundException::new);
 
         entity.updateName(subPlanToUpdate.name());
@@ -64,15 +88,16 @@ public class SubscriptionPlanService {
     }
 
     @Transactional
-    public SubscriptionPlanDto delete(Long id){
+    public void delete(Long id){
+        Long currentTenantId = SecurityUtils.getCurrentTenantId();
 
         SubscriptionPlanEntity entity = subscriptionPlanRepository
-                .findByIdAndIsActiveTrue(id)
+                .findByIdAndTenantIdAndIsActiveTrue(id, currentTenantId)
                 .orElseThrow(EntityNotFoundException::new);
 
         entity.archive();
-        return mapperToDto(entity);
     }
+
 
     private SubscriptionPlanDto mapperToDto(SubscriptionPlanEntity entity){
         return new SubscriptionPlanDto(
@@ -82,9 +107,5 @@ public class SubscriptionPlanService {
                 entity.getDuration(),
                 entity.getTenant().getId(),
                 entity.isActive());
-    }
-
-    private List<SubscriptionPlanDto> mapperToDto(List<SubscriptionPlanEntity> entities){
-        return entities.stream().map(this::mapperToDto).toList();
     }
 }

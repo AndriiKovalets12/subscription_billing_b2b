@@ -15,17 +15,14 @@ public record CreateSubscriptionPlanDto(
         BigDecimal cost,
 
         @NotNull(message = "Duration cannot be empty or null.")
-        BillingCycle duration,
+        BillingCycle duration
 
-        @NotNull(message = "Tenant's id cannot be empty or null.")
-        @Positive(message = "Tenant's id must be greater than zero.")
-        Long tenant_id
 ) {
         @Override
         public String toString() {
                 return "{" + name +
                         ", cost=" + cost.toString() +
                         ", duration=" + duration.toString() +
-                        ", tenantId=" + tenant_id + " }";
+                        " }";
         }
 }

@@ -1,15 +1,15 @@
 package dev.billing_engine;
 
 import dev.billing_engine.dto.BillingResult;
-import dev.invoices.InvoiceEntity;
-import dev.invoices.InvoiceRepository;
+import dev.invoices.data.InvoiceEntity;
+import dev.invoices.data.InvoiceRepository;
 import dev.invoices.InvoiceService;
 import dev.invoices.InvoiceStatus;
 import dev.invoices.dto.CreateInvoiceDto;
 import dev.payments.PaymentGateway;
 import dev.subscription_plans.BillingCycle;
-import dev.subscriptions.SubscriptionEntity;
-import dev.subscriptions.SubscriptionRepository;
+import dev.subscriptions.data.SubscriptionEntity;
+import dev.subscriptions.data.SubscriptionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
 import org.slf4j.Logger;
@@ -61,11 +61,10 @@ public class BillingWorker {
                     InvoiceStatus.PENDING,
                     currentPeriodStart,
                     currentPeriodEnd,
-                    idempotencyKey,
-                    subscription.getTenant().getId()
+                    idempotencyKey
             );
 
-            InvoiceEntity createdInvoice = invoiceService.createAndReturnEntity(invoiceToCreate);
+            InvoiceEntity createdInvoice = invoiceService.createAndReturnEntity(invoiceToCreate, subscription.getTenant().getId());
 
             if (paymentGateway.processTransaction()) {
                 createdInvoice.setStatus(InvoiceStatus.PAID);

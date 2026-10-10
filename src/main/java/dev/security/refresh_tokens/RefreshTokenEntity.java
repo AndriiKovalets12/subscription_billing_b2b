@@ -1,6 +1,6 @@
 package dev.security.refresh_tokens;
 
-import dev.users.UserEntity;
+import dev.users.data.UserEntity;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;

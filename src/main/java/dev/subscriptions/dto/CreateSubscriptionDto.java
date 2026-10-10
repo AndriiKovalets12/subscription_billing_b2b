@@ -1,11 +1,8 @@
 package dev.subscriptions.dto;
 
-import dev.subscriptions.SubscriptionStatus;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Positive;
-import org.aspectj.lang.annotation.After;
 
 import java.time.OffsetDateTime;
 
@@ -19,11 +16,7 @@ public record CreateSubscriptionDto(
         Long customerId,
 
         @Future
-        OffsetDateTime nextBillingDate,
-
-        @NotNull(message = "Tenant's id cannot be empty or null.")
-        @Positive(message = "Tenant's id must be greater than zero.")
-        Long tenantId
+        OffsetDateTime nextBillingDate
 ) {
     @Override
     public String toString() {
@@ -31,7 +24,6 @@ public record CreateSubscriptionDto(
                 "subscriptionPlanId=" + subscriptionPlanId +
                 ", customerId=" + customerId +
                 ", nextBillingDate=" + nextBillingDate +
-                ", tenantId=" + tenantId +
                 '}';
     }
 }

@@ -2,14 +2,18 @@ package dev.subscription_plans;
 
 import dev.subscription_plans.dto.CreateSubscriptionPlanDto;
 import dev.subscription_plans.dto.SubscriptionPlanDto;
-import dev.subscription_plans.dto.UpdateSubscriptionPlanDto;
+import dev.subscription_plans.dto.FiltersSubscriptionPlanDto;
+import dev.subscription_plans.dto.UpdateSubscriptionPlanNameDto;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/plans")
@@ -22,15 +26,21 @@ public class SubscriptionPlanController {
     }
 
     @GetMapping
-    public ResponseEntity<List<SubscriptionPlanDto>> getAllSubPlans(){
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'TENANT_SUPPORT', 'TENANT_OWNER')")
+    public ResponseEntity<Page<SubscriptionPlanDto>> getAllSubPlans(
+            @Valid FiltersSubscriptionPlanDto filters,
+            @PageableDefault(size = 20, sort = "cost", direction = Sort.Direction.DESC)
+            Pageable pageable
+    ){
 
         log.info("Called getAllSubPlans().");
 
-        List<SubscriptionPlanDto> planDtoList = service.getAll();
+        Page<SubscriptionPlanDto> planDtoList = service.getAll(filters, pageable);
         return ResponseEntity.ok(planDtoList);
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'TENANT_SUPPORT', 'TENANT_OWNER')")
     public ResponseEntity<SubscriptionPlanDto> getSubPlanById(@PathVariable Long id){
 
         log.info("Called getSubPlanById(Long id) with id={}", id);
@@ -40,6 +50,7 @@ public class SubscriptionPlanController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'TENANT_OWNER')")
     public ResponseEntity<SubscriptionPlanDto> createSubPlan(
             @Valid @RequestBody CreateSubscriptionPlanDto subPlanToCreate){
 
@@ -51,9 +62,10 @@ public class SubscriptionPlanController {
     }
 
     @PatchMapping("/{id}")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'TENANT_OWNER')")
     public ResponseEntity<SubscriptionPlanDto> updateSubPlanName(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateSubscriptionPlanDto subPlanToUpdate){
+            @Valid @RequestBody UpdateSubscriptionPlanNameDto subPlanToUpdate){
 
         log.info("Called updateSubPlan(Long id, UpdateSubscriptionPlanDto subPlanToUpdate) with " +
                 "id={}, subPlanToUpdate:{}", id, subPlanToUpdate.toString());
@@ -63,11 +75,12 @@ public class SubscriptionPlanController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<SubscriptionPlanDto> deleteSubPlan(@PathVariable Long id){
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'TENANT_OWNER')")
+    public ResponseEntity<Void> deleteSubPlan(@PathVariable Long id){
 
         log.info("Called deleteSubPlan(Long id) with id={}", id);
 
-        SubscriptionPlanDto deletedSubPlan = service.delete(id);
-        return ResponseEntity.ok(deletedSubPlan);
+        service.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

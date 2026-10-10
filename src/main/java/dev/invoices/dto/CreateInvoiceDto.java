@@ -1,7 +1,6 @@
 package dev.invoices.dto;
 
 import dev.invoices.InvoiceStatus;
-import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -23,15 +22,12 @@ public record CreateInvoiceDto(
 
         OffsetDateTime billingPeriodStart,
 
-        @Future
+        @NotNull
         OffsetDateTime billingPeriodEnd,
 
         @NotBlank
-        String idempotencyKey,
+        String idempotencyKey
 
-        @NotNull(message = "Tenant's id cannot be empty or null.")
-        @Positive(message = "Tenant's id must be greater than zero.")
-        Long tenantId
 ) {
     @Override
     public String toString() {
@@ -42,7 +38,6 @@ public record CreateInvoiceDto(
                 ", billingPeriodStart=" + billingPeriodStart +
                 ", billingPeriodEnd=" + billingPeriodEnd +
                 ", idempotencyKey='" + idempotencyKey + '\'' +
-                ", tenantId=" + tenantId +
                 '}';
     }
 }

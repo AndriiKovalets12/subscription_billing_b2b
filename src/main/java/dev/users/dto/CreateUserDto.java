@@ -1,15 +1,15 @@
 package dev.users.dto;
 
-import dev.users.UserRole;
+import dev.users.security.UserRole;
 import jakarta.validation.constraints.*;
 
 public record CreateUserDto(
         @NotBlank(message = "First name cannot be empty.")
-        @Size(min = 1, max = 50, message = "First name shouldn't be longer than two symbols and shorter than fifty symbols.")
+        @Size(min = 1, max = 50, message = "First name shouldn't be longer than fifty symbols and shorter than two symbols.")
         String firstName,
 
         @NotBlank(message = "Last name cannot be empty.")
-        @Size(min = 1, max = 50, message = "Last name shouldn't be longer than two symbols and shorter than fifty symbols.")
+        @Size(min = 1, max = 50, message = "First name shouldn't be longer than fifty symbols and shorter than two symbols.")
         String lastName,
 
         @Email(message = "Email must be in correct format.")
@@ -17,14 +17,12 @@ public record CreateUserDto(
         String email,
 
         @NotBlank(message = "Password cannot be empty.")
+        @Size(min = 8, message = "Password length min 8 symbols.")
         String rawPassword,
 
         @NotNull(message = "User role cannot be empty.")
-        UserRole userRole,
+        UserRole userRole
 
-        @NotNull(message = "Tenant's id cannot be empty or null.")
-        @Positive(message = "Tenant's id must be greater than zero.")
-        Long tenantId
 ) {
     @Override
     public String toString() {
@@ -34,7 +32,6 @@ public record CreateUserDto(
                 ", email='" + email + '\'' +
                 ", rawPassword='" + rawPassword + '\'' +
                 ", userRole='" + userRole + '\'' +
-                ", tenantId=" + tenantId +
                 '}';
     }
 }

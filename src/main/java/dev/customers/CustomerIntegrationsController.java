@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -18,25 +19,25 @@ public class CustomerIntegrationsController {
         this.service = service;
     }
 
-    @PutMapping("/tenants/{tenantId}/customers/{externalCustomerId}")
+    @PutMapping("/customers/{externalCustomerId}")
+    @PreAuthorize("hasRole('TENANT_ADMIN')")
     public ResponseEntity<CustomerDto> syncCustomer(
-            @PathVariable("tenantId") Long tenantId,
             @PathVariable("externalCustomerId") String externalCustomerId,
             @Valid @RequestBody SyncCustomerDto syncDto) {
 
-        log.info("Called syncCostumer with tenantId={}, externalCustomerId={}, syncDto:{}", tenantId, externalCustomerId, syncDto.toString());
-        CustomerDto customerDto = service.sync(tenantId, externalCustomerId, syncDto);
+        log.info("Called syncCostumer with externalCustomerId={}, syncDto:{}", externalCustomerId, syncDto.toString());
+        CustomerDto customerDto = service.sync(externalCustomerId, syncDto);
         return ResponseEntity.ok(customerDto);
     }
 
-    @DeleteMapping("/tenants/{tenantId}/customers/{externalCustomerId}")
-    public ResponseEntity<Void> deleteCustomer(
-            @PathVariable("tenantId") Long tenantId,
+    @DeleteMapping("/customers/{externalCustomerId}")
+    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    public ResponseEntity<Void> deleteCustomerByExternalId(
             @PathVariable("externalCustomerId") String externalCustomerId) {
 
-        log.info("Called deleteCustomer() for tenantId={}, externalCustomerId={}", tenantId, externalCustomerId);
+        log.info("Called deleteCustomer() with externalCustomerId={}", externalCustomerId);
 
-        service.deleteByExternalId(tenantId, externalCustomerId);
+        service.deleteByExternalId(externalCustomerId);
 
         return ResponseEntity.noContent().build(); // HTTP 204
     }

@@ -1,124 +1,152 @@
 package dev.invoices;
 
-
+import dev.invoices.data.InvoiceEntity;
+import dev.invoices.data.InvoiceRepository;
+import dev.invoices.data.InvoiceSpecification;
 import dev.invoices.dto.CreateInvoiceDto;
 import dev.invoices.dto.InvoiceDto;
-import dev.subscriptions.SubscriptionEntity;
-import dev.subscriptions.SubscriptionRepository;
-import dev.tenants.TenantEntity;
-import dev.tenants.TenantRepository;
+import dev.invoices.dto.InvoiceFiltersDto;
+import dev.payments.PaymentGateway;
+import dev.security.SecurityUtils;
+import dev.subscriptions.data.SubscriptionEntity;
+import dev.subscriptions.data.SubscriptionRepository;
+import dev.tenants.data.TenantEntity;
+import dev.tenants.data.TenantRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final TenantRepository tenantRepository;
+    private final PaymentGateway paymentGateway;
 
     public InvoiceService(InvoiceRepository invoiceRepository,
                           SubscriptionRepository subscriptionRepository,
-                          TenantRepository tenantRepository) {
+                          TenantRepository tenantRepository,
+                          PaymentGateway paymentGateway) {
         this.invoiceRepository = invoiceRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.tenantRepository = tenantRepository;
+        this.paymentGateway = paymentGateway;
     }
 
-    public List<InvoiceDto> getAll() {
-        List<InvoiceEntity> invoiceEntities = invoiceRepository.findAll();
-        return mapperToDto(invoiceEntities);
+    @Transactional(readOnly = true)
+    public Page<InvoiceDto> getAll(InvoiceFiltersDto filters, Pageable pageable) {
+        Long currentTenantId = SecurityUtils.getCurrentTenantId();
+        Specification<InvoiceEntity> spec = InvoiceSpecification.withFilters(currentTenantId, filters);
+
+        return invoiceRepository.findAll(spec, pageable).map(this::mapperToDto);
     }
 
-    public InvoiceDto getById(Long id){
-        InvoiceEntity invoice = invoiceRepository
-                .findById(id)
+    @Transactional(readOnly = true)
+    public InvoiceDto getById(Long id) {
+        Long currentTenantId = SecurityUtils.getCurrentTenantId();
+        InvoiceEntity invoice = invoiceRepository.findByIdAndTenantId(id, currentTenantId)
                 .orElseThrow(() -> new EntityNotFoundException("Invoice with id=" + id + " not found."));
 
         return mapperToDto(invoice);
     }
 
-    public InvoiceDto create(@Valid CreateInvoiceDto invoiceToCreate){
-        try {
-            Long tenantId = invoiceToCreate.tenantId();
-            Long subscriptionId = invoiceToCreate.subscriptionId();
+    // Метод для REST API
+    @Transactional
+    public InvoiceDto create(@Valid CreateInvoiceDto invoiceToCreate) {
+        Long currentTenantId = SecurityUtils.getCurrentTenantId();
+        InvoiceEntity entity = internalCreate(invoiceToCreate, currentTenantId);
+        return mapperToDto(entity);
+    }
 
-            TenantEntity tenant = tenantRepository
-                    .findById(tenantId)
+    // Метод для внутрішнього BillingWorker (не залежить від SecurityContext)
+    @Transactional
+    public InvoiceEntity createAndReturnEntity(@Valid CreateInvoiceDto invoiceToCreate, Long tenantId) {
+        return internalCreate(invoiceToCreate, tenantId);
+    }
+
+    private InvoiceEntity internalCreate(CreateInvoiceDto dto, Long tenantId) {
+        try {
+            TenantEntity tenant = tenantRepository.findById(tenantId)
                     .orElseThrow(() -> new EntityNotFoundException("Tenant with id=" + tenantId + " not found."));
 
-            SubscriptionEntity subscription = subscriptionRepository
-                    .findByIdAndTenantId(subscriptionId, tenantId)
-                    .orElseThrow(() -> new EntityNotFoundException("Subscription with id=" + subscriptionId + " and with tenant_id=" + tenantId + " not found."));
+            SubscriptionEntity subscription = subscriptionRepository.findByIdAndTenantId(dto.subscriptionId(), tenantId)
+                    .orElseThrow(() -> new EntityNotFoundException("Subscription not found for this tenant."));
 
             InvoiceEntity createdInvoice = new InvoiceEntity(
                     subscription,
-                    invoiceToCreate.amount(),
-                    invoiceToCreate.status(),
-                    invoiceToCreate.billingPeriodStart(),
-                    invoiceToCreate.billingPeriodEnd(),
+                    dto.amount(),
+                    dto.status(),
+                    dto.billingPeriodStart(),
+                    dto.billingPeriodEnd(),
                     1L,
-                    invoiceToCreate.idempotencyKey(),
+                    dto.idempotencyKey(),
                     tenant
             );
 
-            invoiceRepository.save(createdInvoice);
-            return mapperToDto(createdInvoice);
-        } catch (DataIntegrityViolationException ex){
-            InvoiceEntity entity = invoiceRepository.findByIdempotencyKey(invoiceToCreate.idempotencyKey());
-            return mapperToDto(entity);
+            return invoiceRepository.save(createdInvoice);
+        } catch (DataIntegrityViolationException ex) {
+            return invoiceRepository.findByIdempotencyKey(dto.idempotencyKey());
         }
-
     }
 
-    public InvoiceEntity createAndReturnEntity(@Valid CreateInvoiceDto invoiceToCreate){
+    @Transactional
+    public InvoiceDto retry(Long invoiceId) {
+        Long currentTenantId = SecurityUtils.getCurrentTenantId();
 
-        try {
-            Long tenantId = invoiceToCreate.tenantId();
-            Long subscriptionId = invoiceToCreate.subscriptionId();
+        InvoiceEntity invoice = invoiceRepository.findByIdAndTenantId(invoiceId, currentTenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Invoice with id=" + invoiceId + " not found."));
 
-            TenantEntity tenant = tenantRepository
-                    .findById(tenantId)
-                    .orElseThrow(() -> new EntityNotFoundException("Tenant with id=" + tenantId + " not found."));
-
-            SubscriptionEntity subscription = subscriptionRepository
-                    .findByIdAndTenantId(subscriptionId, tenantId)
-                    .orElseThrow(() -> new EntityNotFoundException("Subscription with id=" + subscriptionId + " and with tenant_id=" + tenantId + " not found."));
-
-            InvoiceEntity createdInvoice = new InvoiceEntity(
-                    subscription,
-                    invoiceToCreate.amount(),
-                    invoiceToCreate.status(),
-                    invoiceToCreate.billingPeriodStart(),
-                    invoiceToCreate.billingPeriodEnd(),
-                    1L,
-                    invoiceToCreate.idempotencyKey(),
-                    tenant
-            );
-
-            invoiceRepository.save(createdInvoice);
-            return createdInvoice;
-        } catch (DataIntegrityViolationException ex){
-            return invoiceRepository.findByIdempotencyKey(invoiceToCreate.idempotencyKey());
+        if (invoice.getStatus() != InvoiceStatus.FAILED) {
+            throw new IllegalStateException("Only invoices with FAILED status can be retried.");
         }
 
+        SubscriptionEntity subscription = invoice.getSubscription();
+
+        if (paymentGateway.processTransaction()) {
+            invoice.setStatus(InvoiceStatus.PAID);
+            subscription.activate();
+            subscription.resetPaymentAttempt();
+            subscription.setNextBillingDate(invoice.getBillingPeriodEnd());
+
+            return mapperToDto(invoice);
+        } else {
+            throw new IllegalStateException("Payment retry failed. Please check customer's payment method or try again later.");
+        }
     }
 
-    private InvoiceDto mapperToDto(InvoiceEntity entity){
+    @Transactional
+    public InvoiceDto voidInvoice(Long invoiceId) {
+        Long currentTenantId = SecurityUtils.getCurrentTenantId();
+
+        InvoiceEntity invoice = invoiceRepository.findByIdAndTenantId(invoiceId, currentTenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Invoice with id=" + invoiceId + " not found."));
+
+        if (invoice.getStatus() == InvoiceStatus.PAID) {
+            throw new IllegalStateException("Invoice with status PAID cannot be voided. Use REFUND instead.");
+        }
+
+        if (invoice.getStatus() == InvoiceStatus.VOID) {
+            throw new IllegalStateException("Invoice is already voided.");
+        }
+
+        invoice.setStatus(InvoiceStatus.VOID);
+        return mapperToDto(invoice);
+    }
+
+    private InvoiceDto mapperToDto(InvoiceEntity entity) {
         return new InvoiceDto(
-                entity.getId(),
+                entity.getSubscription().getId(),
                 entity.getAmount(),
                 entity.getStatus(),
                 entity.getCreatedAt(),
                 entity.getBillingPeriodStart(),
                 entity.getBillingPeriodEnd(),
-                entity.getTenant().getId());
-    }
-
-    private List<InvoiceDto> mapperToDto(List<InvoiceEntity> entities){
-        return entities.stream().map(this::mapperToDto).toList();
+                entity.getTenant().getId()
+        );
     }
 }
