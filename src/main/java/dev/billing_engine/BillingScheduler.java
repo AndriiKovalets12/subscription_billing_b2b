@@ -6,8 +6,11 @@ import dev.invoices.InvoiceStatus;
 import dev.subscriptions.data.SubscriptionEntity;
 import dev.subscriptions.data.SubscriptionRepository;
 import dev.subscriptions.SubscriptionStatus;
+import jakarta.persistence.OptimisticLockException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +20,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
+@Slf4j
 @Service
 public class BillingScheduler {
     private final SubscriptionRepository subscriptionRepository;
@@ -31,7 +35,6 @@ public class BillingScheduler {
 
     @Scheduled(cron = "0 0 0 * * *")
     public BillingReportDto runDailyBilling(){
-        int pageNumber = 0;
         int pageSize = 100;
         OffsetDateTime now = OffsetDateTime.now();
         Page<SubscriptionEntity> page;
@@ -41,11 +44,10 @@ public class BillingScheduler {
             page = subscriptionRepository.findActiveSubscriptionsByBilling(
                     now,
                     SubscriptionStatus.ACTIVE,
-                    PageRequest.of(pageNumber, pageSize)
+                    PageRequest.of(0, pageSize)
             );
 
             addToAllResults(page, allResults);
-            pageNumber++;
 
         } while (!page.isEmpty());
 
@@ -53,11 +55,10 @@ public class BillingScheduler {
             page = subscriptionRepository.findPastDueSubscriptionsByBilling(
                     now,
                     SubscriptionStatus.PAST_DUE,
-                    PageRequest.of(pageNumber, pageSize)
+                    PageRequest.of(0, pageSize)
             );
 
             addToAllResults(page, allResults);
-            pageNumber++;
 
         } while (!page.isEmpty());
 
@@ -67,7 +68,19 @@ public class BillingScheduler {
     private void addToAllResults(Page<SubscriptionEntity> page, List<BillingResult> allResults) {
         List<CompletableFuture<BillingResult>> futures = page.getContent().stream()
                 .map(sub -> CompletableFuture.supplyAsync(
-                        () -> billingWorker.processSubscription(sub.getId()),
+                        () -> {
+                            try {
+                                return billingWorker.processSubscription(sub.getId());
+
+                            } catch(ObjectOptimisticLockingFailureException | OptimisticLockException e) {
+                                log.warn("Concurrency conflict for subscription {}. Rolling back.", sub.getId());
+                                return new BillingResult(sub.getId(), null, null, "Skipped: Duplicate idempotency key");
+
+                            } catch(Exception e){
+                                log.error("Failed to process billing for subscription {}", sub.getId(), e);
+                                throw new RuntimeException("Billing process failed", e);
+                            }
+                        },
                         billingExecutor
                 ))
                 .toList();

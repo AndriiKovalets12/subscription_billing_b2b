@@ -65,6 +65,6 @@ public class RegistrationService {
 
         userService.registerNewUser(userDto, invite.tenantId());
 
-        invitationService.delete(invite);
+        invitationService.markAsAccepted(request.token());
     }
 }

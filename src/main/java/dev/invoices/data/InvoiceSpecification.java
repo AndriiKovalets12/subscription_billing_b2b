@@ -1,6 +1,7 @@
 package dev.invoices.data;
 
 import dev.invoices.dto.InvoiceFiltersDto;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -56,6 +57,11 @@ public class InvoiceSpecification {
                 if (filters.billingPeriodEndMax() != null) {
                     predicates.add(cb.lessThanOrEqualTo(root.get("billingPeriodEnd"), filters.billingPeriodEndMax()));
                 }
+            }
+
+            if (Long.class != query.getResultType()) {
+                root.fetch("tenant", JoinType.INNER);
+                root.fetch("subscription", JoinType.INNER);
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

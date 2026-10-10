@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Slf4j
@@ -34,12 +35,13 @@ public class JwtService {
         long currentTime = System.currentTimeMillis();
 
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .claim("tenantId", tenantId)
                 .claim("userRole", userRole)
                 .claim("userAuthorities", userRole.getAuthorities())
                 .subject(userDetails.getUsername())
                 .issuedAt(new Date(currentTime))
-                .expiration(new Date(currentTime + jwtExpirationMinute * 10000))
+                .expiration(new Date(currentTime + jwtExpirationMinute * 60 * 1000))
                 .signWith(secretKey, Jwts.SIG.HS256)
                 .compact();
     }

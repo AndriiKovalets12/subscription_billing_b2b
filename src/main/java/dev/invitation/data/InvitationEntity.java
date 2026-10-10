@@ -1,5 +1,6 @@
 package dev.invitation.data;
 
+import dev.invitation.InvitationStatus;
 import dev.tenants.data.TenantEntity;
 import dev.users.security.UserRole;
 import jakarta.persistence.*;
@@ -11,7 +12,6 @@ import java.time.OffsetDateTime;
 @Table(name = "invitations")
 @Getter
 public class InvitationEntity {
-
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "gen_invitations_seq")
     @SequenceGenerator(sequenceName = "invitations_seq", name = "gen_invitations_seq")
@@ -34,6 +34,9 @@ public class InvitationEntity {
     @Column(name = "expires_at", nullable = false)
     private OffsetDateTime expiresAt;
 
+    @Column(name = "status", nullable = false)
+    private InvitationStatus status;
+
     public InvitationEntity() {
     }
 
@@ -43,6 +46,14 @@ public class InvitationEntity {
         this.userRole = userRole;
         this.tenant = tenant;
         this.expiresAt = expiresAt;
+        this.status = InvitationStatus.PENDING;
     }
 
+    public void markAsExpired() {
+        this.status = InvitationStatus.EXPIRED;
+    }
+
+    public void markAsAccepted() {
+        this.status = InvitationStatus.ACCEPTED;
+    }
 }

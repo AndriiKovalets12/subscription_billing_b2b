@@ -1,6 +1,6 @@
 package dev.invitation;
 
-import dev.emails.EmailService;
+import dev.emails.EmailSender;
 import dev.invitation.data.InvitationEntity;
 import dev.invitation.data.InvitationRepository;
 import dev.invitation.dto.CreateInvitationDto;
@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
-import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -24,11 +23,11 @@ public class InvitationService {
     private final InvitationRepository invitationRepository;
     private final UserService userService;
     private final TenantService tenantService;
-    private final EmailService emailService;
+    private final EmailSender emailService;
 
     public InvitationService(InvitationRepository invitationRepository,
                              UserService userService,
-                             TenantService tenantService, EmailService emailService) {
+                             TenantService tenantService, EmailSender emailService) {
         this.invitationRepository = invitationRepository;
         this.userService = userService;
         this.tenantService = tenantService;
@@ -47,10 +46,6 @@ public class InvitationService {
     @Transactional
     public InvitationDto create(@Valid CreateInvitationDto invitation) {
         Long currentTenantId = SecurityUtils.getCurrentTenantId();
-
-        if (!Objects.equals(currentTenantId, invitation.tenantId())){
-            throw new IllegalStateException();
-        }
 
         if (userService.exists(invitation.email())) {
             throw new EntityExistsException("User with email:" + invitation.email() + " already exists.");
@@ -82,7 +77,7 @@ public class InvitationService {
                 findByToken(invite.token())
                 .orElseThrow(() -> new EntityNotFoundException("Invitation with token:" + invite.token() + " not found."));
 
-        invitationRepository.delete(invitationToDelete);
+        invitationToDelete.markAsExpired();
     }
     private InvitationDto mapperToDto(InvitationEntity entity){
         return new InvitationDto(
@@ -93,5 +88,12 @@ public class InvitationService {
                 entity.getExpiresAt());
     }
 
-   
+    @Transactional
+    public void markAsAccepted(String token) {
+        InvitationEntity invitationToDelete = invitationRepository.
+                findByToken(token)
+                .orElseThrow(() -> new EntityNotFoundException("Invitation with token:" + token + " not found."));
+
+        invitationToDelete.markAsAccepted();
+    }
 }

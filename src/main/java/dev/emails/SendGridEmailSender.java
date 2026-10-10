@@ -19,26 +19,23 @@ import java.io.IOException;
 
 @Slf4j
 @Service
-public class EmailService {
-
+public class SendGridEmailSender implements EmailSender {
     private final String corporateEmail;
     private final String frontendUrl;
     private final SendGrid sendGrid;
-    private final TenantService tenantService;
 
-    public EmailService(
+    public SendGridEmailSender(
             @Value("${application.email.corporate-email-address}") String corporateEmail,
             @Value("${application.email.api-key}") String apiKey,
-            @Value("${application.frontend.url:https://app.com}") String frontendUrl,
-            TenantService tenantService) {
+            @Value("${application.frontend.url:https://app.com}") String frontendUrl) {
 
         this.corporateEmail = corporateEmail;
         this.frontendUrl = frontendUrl;
-        this.tenantService = tenantService;
         this.sendGrid = new SendGrid(apiKey);
     }
 
     @Async
+    @Override
     public void sendInvitationEmail(InvitationDto invite, TenantDto tenantDto) {
 
         String subject = String.format("You've been invited to join %s company.", tenantDto.name());
@@ -86,4 +83,5 @@ public class EmailService {
             throw new RuntimeException("Email sending failed due to network or I/O issue", e);
         }
     }
+
 }

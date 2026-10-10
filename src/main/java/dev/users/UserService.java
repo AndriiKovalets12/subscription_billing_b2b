@@ -22,8 +22,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 @Service
 public class UserService {
     private final UserRepository userRepository;
@@ -83,7 +81,7 @@ public class UserService {
                 .findById(currentTenantId)
                 .orElseThrow(EntityNotFoundException::new);
 
-        if (userRepository.existsByEmail(userToCreate.email())){
+        if (!userRepository.existsByEmail(userToCreate.email())){
             UserEntity createdUser =
                     new UserEntity(
                             userToCreate.firstName(),
@@ -94,7 +92,6 @@ public class UserService {
                             tenant
                     );
 
-            // Додай у UserService.create():
             if (userToCreate.userRole() == UserRole.SUPER_ADMIN && !SecurityUtils.hasRole("SUPER_ADMIN")) {
                 throw new AccessDeniedException("You do not have permission to assign SUPER_ADMIN role.");
             }

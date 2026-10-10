@@ -11,10 +11,6 @@ import dev.subscription_plans.BillingCycle;
 import dev.subscriptions.data.SubscriptionEntity;
 import dev.subscriptions.data.SubscriptionRepository;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.persistence.OptimisticLockException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -23,7 +19,6 @@ import java.time.OffsetDateTime;
 
 @Component
 public class BillingWorker {
-    private static final Logger log = LoggerFactory.getLogger(BillingWorker.class);
     private final InvoiceService invoiceService;
     private final InvoiceRepository invoiceRepository;
     private final PaymentGateway paymentGateway;
@@ -51,55 +46,47 @@ public class BillingWorker {
         String idempotencyKey = String.format("sub_%d_%s",
                 subscription.getId(),
                 subscription.getNextBillingDate().toLocalDate().toString());
-        try {
-            OffsetDateTime currentPeriodStart = subscription.getNextBillingDate();
-            OffsetDateTime currentPeriodEnd = computeBillingPeriodEnd(currentPeriodStart, subscription.getSubscriptionPlan().getDuration());
 
-            CreateInvoiceDto invoiceToCreate = new CreateInvoiceDto(
-                    subscription.getId(),
-                    subscription.getSubscriptionPlan().getCost(),
-                    InvoiceStatus.PENDING,
-                    currentPeriodStart,
-                    currentPeriodEnd,
-                    idempotencyKey
-            );
+        OffsetDateTime currentPeriodStart = subscription.getNextBillingDate();
+        OffsetDateTime currentPeriodEnd = computeBillingPeriodEnd(currentPeriodStart, subscription.getSubscriptionPlan().getDuration());
 
-            InvoiceEntity createdInvoice = invoiceService.createAndReturnEntity(invoiceToCreate, subscription.getTenant().getId());
+        CreateInvoiceDto invoiceToCreate = new CreateInvoiceDto(
+                subscription.getId(),
+                subscription.getSubscriptionPlan().getCost(),
+                InvoiceStatus.PENDING,
+                currentPeriodStart,
+                currentPeriodEnd,
+                idempotencyKey
+        );
 
-            if (paymentGateway.processTransaction()) {
-                createdInvoice.setStatus(InvoiceStatus.PAID);
-                subscription.activate();
-                subscription.resetPaymentAttempt();
-                subscription.setNextBillingDate(currentPeriodEnd);
+        InvoiceEntity createdInvoice = invoiceService.createAndReturnEntity(invoiceToCreate, subscription.getTenant().getId());
+
+        if (paymentGateway.processTransaction()) {
+            createdInvoice.setStatus(InvoiceStatus.PAID);
+            subscription.activate();
+            subscription.resetPaymentAttempt();
+            subscription.setNextBillingDate(currentPeriodEnd);
+
+            invoiceRepository.saveAndFlush(createdInvoice);
+            subscriptionRepository.saveAndFlush(subscription);
+
+            return new BillingResult(subscription.getId(), createdInvoice.getId(), InvoiceStatus.PAID, "Success.");
+        } else {
+
+            createdInvoice.setStatus(InvoiceStatus.FAILED);
+            if (subscription.incrementPaymentAttempt()) {
+                subscription.markAsPastDue();
+                subscription.updateNextRetryDate(currentPeriodStart);
+
+            } else {
+                subscription.cancel();
 
                 invoiceRepository.saveAndFlush(createdInvoice);
                 subscriptionRepository.saveAndFlush(subscription);
 
-                return new BillingResult(subscription.getId(), createdInvoice.getId(), InvoiceStatus.PAID, "Success.");
-            } else {
-
-                createdInvoice.setStatus(InvoiceStatus.FAILED);
-                if (subscription.incrementPaymentAttempt()) {
-                    subscription.markAsPastDue();
-                    subscription.updateNextRetryDate(currentPeriodStart);
-
-                } else {
-                    subscription.cancel();
-
-                    invoiceRepository.saveAndFlush(createdInvoice);
-                    subscriptionRepository.saveAndFlush(subscription);
-
-                }
-                return new BillingResult(subscription.getId(), createdInvoice.getId(), InvoiceStatus.FAILED, "Payment failed.");
             }
-
-            } catch(ObjectOptimisticLockingFailureException | OptimisticLockException e){
-                log.warn("Concurrency conflict for subscription {}. Rolling back.", subscription.getId());
-                return new BillingResult(subscription.getId(), null, null, "Skipped: Duplicate idempotency key");
-            } catch(Exception e){
-                log.error("Failed to process billing for subscription {}", subscription.getId(), e);
-                throw new RuntimeException("Billing process failed", e);
-            }
+            return new BillingResult(subscription.getId(), createdInvoice.getId(), InvoiceStatus.FAILED, "Payment failed.");
+        }
     }
 
     private OffsetDateTime computeBillingPeriodEnd(OffsetDateTime currentPeriodStart, BillingCycle duration){

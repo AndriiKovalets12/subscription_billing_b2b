@@ -1,6 +1,7 @@
 package dev.customers.data;
 
 import dev.customers.dto.CustomerFiltersDto;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -29,6 +30,11 @@ public class CustomerSpecification {
                     predicates.add(cb.equal(cb.lower(root.get("lastName")), filters.lastName().toLowerCase()));
                 }
             }
+
+            if (Long.class != query.getResultType()){
+                root.fetch("tenant", JoinType.INNER);
+            }
+
             return cb.and(predicates.toArray(new Predicate[0]));
         }
         );

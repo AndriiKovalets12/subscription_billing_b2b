@@ -20,7 +20,6 @@ public class UserSpecification {
             predicates.add(cb.equal(root.get("tenant").get("id"), tenantId));
             predicates.add(cb.isTrue(root.get("isActive")));
 
-            // 2. Уникнення N+1 для сторінкових запитів
             if (Long.class != query.getResultType()) {
                 root.fetch("tenant", JoinType.LEFT);
             }

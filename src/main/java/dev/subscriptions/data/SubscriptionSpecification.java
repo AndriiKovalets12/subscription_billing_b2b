@@ -2,6 +2,7 @@ package dev.subscriptions.data;
 
 import dev.subscriptions.SubscriptionStatus;
 import dev.subscriptions.dto.SubscriptionFiltersDto;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -39,6 +40,11 @@ public class SubscriptionSpecification {
                         predicates.add(cb.lessThanOrEqualTo(root.get("nextBillingDate"), filters.nextBillingDateMax()));
                     }
                 }
+            }
+
+            if (Long.class != query.getResultType()){
+                root.fetch("tenant", JoinType.INNER);
+                root.fetch("subscriptionPlan", JoinType.INNER);
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

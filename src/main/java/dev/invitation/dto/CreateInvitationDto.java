@@ -12,10 +12,8 @@ public record CreateInvitationDto(
         String email,
 
         @NotNull(message = "User role shouldn't be null.")
-        UserRole userRole,
+        UserRole userRole
 
-        @NotNull(message = "Tenant id shouldn't be null")
-        Long tenantId
 ) {
 
     @Override
@@ -23,7 +21,6 @@ public record CreateInvitationDto(
         return "{" +
                 "email='" + email + '\'' +
                 ", userRole=" + userRole +
-                ", tenantId=" + tenantId +
                 '}';
     }
 }

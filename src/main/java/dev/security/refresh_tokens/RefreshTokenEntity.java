@@ -4,7 +4,6 @@ import dev.users.data.UserEntity;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.time.OffsetDateTime;
 
@@ -33,7 +32,7 @@ public class RefreshTokenEntity {
 
     public RefreshTokenEntity(String token,
                               UserEntity user,
-                              @Value("${application.security.refresh-token.refresh-token-expiration-day}") Long expiringTime) {
+                              Long expiringTime) {
         this.token = token;
         this.user = user;
         this.expiringTime = OffsetDateTime.now().plusDays(expiringTime);

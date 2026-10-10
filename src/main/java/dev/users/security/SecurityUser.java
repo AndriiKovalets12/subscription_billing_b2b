@@ -2,6 +2,7 @@ package dev.users.security;
 
 import dev.users.data.UserEntity;
 import lombok.Getter;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,6 +11,8 @@ import java.util.Collection;
 import java.util.List;
 
 public class SecurityUser implements UserDetails {
+    @Getter
+    private final Long userId;
     @Getter
     private final Long tenantId;
     private final String username;
@@ -20,6 +23,7 @@ public class SecurityUser implements UserDetails {
     private final Collection<? extends GrantedAuthority> authorities;
 
     public SecurityUser(UserEntity user, UserRole role) {
+        this.userId = user.getId();
         this.tenantId = user.getTenant().getId();
         this.username = user.getEmail();
         this.password = user.getHashPassword();
@@ -29,6 +33,7 @@ public class SecurityUser implements UserDetails {
     }
 
     @Override
+    @NullMarked
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return authorities;
     }
@@ -39,6 +44,7 @@ public class SecurityUser implements UserDetails {
     }
 
     @Override
+    @NullMarked
     public String getUsername() {
         return username;
     }
